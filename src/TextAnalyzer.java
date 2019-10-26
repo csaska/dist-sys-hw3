@@ -24,17 +24,16 @@ public class TextAnalyzer extends Configured implements Tool {
             // Implementation of you mapper function
 
             // Map all permutations of word-pairs and write them to 'context'
-            String line = value.toString();
-            String[] outerResult = line.split("\\s");
-            for (int i = 0; i < outerResult.length; ++i) {
-               String word1 = outerResult[i].replaceAll("[^a-zA-Z0-9]", " ").toLowerCase().trim();
+            String line = value.toString().toLowerCase().replaceAll("[^a-z0-9]", " ");
+            String[] words = line.split("\\s");
+            for (int i = 0; i < words.length; ++i) {
+               String word1 = words[i].trim();
                if (word1.isEmpty()) {
                    continue;
                }
-               String[] innerResult = line.split("\\s");
-               for (int j = 0; j < innerResult.length; ++j) {
+               for (int j = 0; j < words.length; ++j) {
                    if (i != j) {
-                       String word2 = innerResult[j].replaceAll("[^a-zA-Z0-9]", " ").toLowerCase().trim();
+                       String word2 = words[j].trim();
                        if (word2.isEmpty()) {
                            continue;
                        }
@@ -112,7 +111,7 @@ public class TextAnalyzer extends Configured implements Tool {
         Configuration conf = this.getConf();
 
         // Uncomment to split by sentence
-        //  conf.set("textinputformat.record.delimiter", ".");
+        conf.set("textinputformat.record.delimiter", ".");
 
         // Create job
         Job job =  Job.getInstance(conf, "EID1_cts2458");  //  Deprecated: new Job(conf, "EID1_cts2458"); // Replace with your EIDs
