@@ -17,13 +17,16 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.*;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+
 // Do not change the signature of this class
 public class TextAnalyzer extends Configured implements Tool {
 
     // Replace "?" with your own output key / value types
     // The four template data types are:
     //     <Input Key Type, Input Value Type, Output Key Type, Output Value Type>
-    public static class TextMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    public static class TextMapper extends Mapper<LongWritable, Text, Text, Edge> {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             // Implementation of you mapper function
             //  BreakIterator iterator = BreakIterator.getSentenceInstance(Locale.US);
@@ -48,9 +51,7 @@ public class TextAnalyzer extends Configured implements Tool {
                         if (word2.isEmpty()) {
                             continue;
                         }
-                        if (!word1.equals(word2)) {
-                            context.write(new Text(word1 + " " + word2), new IntWritable(1));
-                        }
+                        context.write(new Text(word1), new Edge(word2, 1));
                     }
                  }
             }
@@ -59,41 +60,44 @@ public class TextAnalyzer extends Configured implements Tool {
 
     // Replace "?" with your own key / value types
     // NOTE: combiner's output key / value types have to be the same as those of mapper
-    public static class TextCombiner extends Reducer<Text, IntWritable, Text, IntWritable> {
-        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+    public static class TextCombiner extends Reducer<Text, Edge, Text, Edge> {
+        public void reduce(Text vertex, Iterable<Edge> edges, Context context) throws IOException, InterruptedException {
             // Implementation of you combiner function
-            int sum = 0;
-            for (IntWritable val : values) {
-               sum += val.get();
+            HashMap<String, Integer> map = new HashMap<>();
+            for (Edge edge : edges) {
+                int weight = edge.weight.get();
+                if (map.containsKey(edge.dest.toString())) {
+                    weight += (int)map.get(edge.dest.toString());
+                }
+                map.put(edge.dest.toString(), weight);
             }
-            context.write(key, new IntWritable(sum));
+
+            for (String neighbor : map.keySet()) {
+                context.write(new Text(vertex), new Edge(neighbor, (int)map.get(neighbor)));
+            }
         }
     }
 
     // Replace "?" with your own input key / value types, i.e., the output
     // key / value types of your mapper function
-    public static class TextReducer extends Reducer<Text, IntWritable, Text, Text> {
+    public static class TextReducer extends Reducer<Text, Edge, Text, Text> {
         private final static Text emptyText = new Text("");
 
-        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+        public void reduce(Text vertex, Iterable<Edge> edges, Context context) throws IOException, InterruptedException {
             // Implementation of you reducer function
-            int sum = 0;
-            for (IntWritable val : values) {
-                sum += val.get();
+            HashMap<String, Integer> map = new HashMap<>();
+            for (Edge edge : edges) {
+                int weight = edge.weight.get();
+                if (map.containsKey(edge.dest.toString())) {
+                    weight += map.get(edge.dest.toString());
+                }
+                map.put(edge.dest.toString(), weight);
             }
-            context.write(key, new Text(Integer.toString(sum)));
 
-            //  // Write out the results; you may change the following example
-            //  // code to fit with your reducer function.
-            //  // Write out each edge and its weight
-	        //  Text value = new Text();
-            //  for(String neighbor: map.keySet()){
-            //      String weight = map.get(neighbor).toString();
-            //      value.set(" " + neighbor + " " + weight);
-            //      context.write(key, value);
-            //  }
-            // Empty line for ending the current context key
-            //  context.write(emptyText, emptyText);
+            for (String neighbor : map.keySet()) {
+                context.write(new Text(vertex + " " + neighbor), new Text(map.get(neighbor).toString()));
+            }
+            context.write(emptyText, emptyText);
         }
     }
 
@@ -110,7 +114,7 @@ public class TextAnalyzer extends Configured implements Tool {
         // Setup MapReduce job
         job.setMapperClass(TextMapper.class);
         job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(IntWritable.class);
+        job.setMapOutputValueClass(Edge.class);
 
         // set local combiner class
         job.setCombinerClass(TextCombiner.class);
@@ -148,6 +152,67 @@ public class TextAnalyzer extends Configured implements Tool {
     // public static class MyClass {
     //
     // }
+    //  public static class Edge {
+    //      String dest;
+    //      int weight;
+
+    //      Edge(String dest, int weight) {
+    //          this.dest = dest;
+    //          this.weight = weight;
+    //      }
+    //  }
+
+    public static class Edge implements Writable {
+        Text dest;
+        IntWritable weight;
+    
+        public Edge() {
+            this.dest = new Text();
+            this.weight = new IntWritable(0);
+        }
+    
+        public Edge(Text dest, IntWritable weight) {
+            this.dest = dest;
+            this.weight = weight;
+        }
+        
+        public Edge(String dest, Integer weight) {
+            this.dest = new Text(dest);
+            this.weight = new IntWritable(weight);
+        }
+    
+        public Text getDest() {
+            return this.dest;
+        }
+    
+        public IntWritable getWeight() {
+            return this.weight;
+        }
+    
+        public void setDest(Text dest) {
+            this.dest = dest;
+        }
+    
+        public void setCount(IntWritable weight) {
+            this.weight = weight;
+        }
+    
+        public void readFields(DataInput in) throws IOException {
+            this.dest.readFields(in);
+            this.weight.readFields(in);
+        }
+    
+        public void write(DataOutput out) throws IOException {
+            this.dest.write(out);
+            this.weight.write(out);
+        }
+    
+        @Override
+        public String toString() {
+            return this.dest.toString() + "\t" + this.weight.toString();
+        }
+    }
+
 }
 
 
