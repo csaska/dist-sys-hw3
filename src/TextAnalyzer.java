@@ -11,7 +11,11 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
+import java.text.BreakIterator;
 import java.util.StringTokenizer;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.*;
 
 // Do not change the signature of this class
 public class TextAnalyzer extends Configured implements Tool {
@@ -22,48 +26,34 @@ public class TextAnalyzer extends Configured implements Tool {
     public static class TextMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             // Implementation of you mapper function
+            //  BreakIterator iterator = BreakIterator.getSentenceInstance(Locale.US);
+            //  String source = value.toString();
+            //  iterator.setText(source);
+            //  int start = iterator.first();
+            //  for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
+                // Map all permutations of word-pairs and write them to 'context'
+                //  String sentence = source.substring(start,end).toLowerCase().replaceAll("[^a-z0-9]", " ");
 
-            // Map all permutations of word-pairs and write them to 'context'
-            String line = value.toString().toLowerCase().replaceAll("[^a-z0-9]", " ");
-            String[] words = line.split("\\s");
-            for (int i = 0; i < words.length; ++i) {
-               String word1 = words[i].trim();
-               if (word1.isEmpty()) {
-                   continue;
-               }
-               for (int j = 0; j < words.length; ++j) {
-                   if (i != j) {
-                       String word2 = words[j].trim();
-                       if (word2.isEmpty()) {
-                           continue;
-                       }
-                       context.write(new Text(word1 + " " + word2), new IntWritable(1));
-                   }
-               }
+            List<String> sentences = Arrays.asList(value.toString().split("\\n"));
+            for(String sentence : sentences) {
+                sentence = sentence.toLowerCase().replaceAll("[^a-z0-9]", " ");
+                Set<String> items = new HashSet<String>(Arrays.asList(sentence.split("\\s+")));
+                for (String entry : items) {
+                    String word1 = entry.trim();
+                    if (word1.isEmpty()) {
+                        continue;
+                    }
+                    for (String entry2 : items) {
+                        String word2 = entry2.trim();
+                        if (word2.isEmpty()) {
+                            continue;
+                        }
+                        if (!word1.equals(word2)) {
+                            context.write(new Text(word1 + " " + word2), new IntWritable(1));
+                        }
+                    }
+                 }
             }
-
-            // Map all permutations of word-pairs and write them to 'context'
-            //  String input = value.toString();
-            //  String[] lines = input.split("\\n");
-            //  for (int lineNum = 0; lineNum < lines.length; ++lineNum) {
-            //      String[] outerResult = lines[lineNum].split("\\s");
-            //      for (int i = 0; i < outerResult.length; ++i) {
-            //          String word1 = outerResult[i].replaceAll("[^a-zA-Z0-9]", " ").toLowerCase().trim();
-            //          if (word1.isEmpty()) {
-            //              continue;
-            //          }
-            //          String[] innerResult = lines[lineNum].split("\\s");
-            //          for (int j = 0; j < innerResult.length; ++j) {
-            //              if (i != j) {
-            //                  String word2 = innerResult[j].replaceAll("[^a-zA-Z0-9]", " ").toLowerCase().trim();
-            //                  if (word2.isEmpty()) {
-            //                      continue;
-            //                  }
-            //                  context.write(new Text(word1 + " " + word2), new IntWritable(1));
-            //              }
-            //          }
-            //      }
-            //
         }
     }
 
@@ -111,7 +101,7 @@ public class TextAnalyzer extends Configured implements Tool {
         Configuration conf = this.getConf();
 
         // Uncomment to split by sentence
-        conf.set("textinputformat.record.delimiter", ".");
+        //  conf.set("textinputformat.record.delimiter", ".");
 
         // Create job
         Job job =  Job.getInstance(conf, "EID1_cts2458");  //  Deprecated: new Job(conf, "EID1_cts2458"); // Replace with your EIDs
@@ -121,7 +111,8 @@ public class TextAnalyzer extends Configured implements Tool {
         job.setMapperClass(TextMapper.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(IntWritable.class);
-	    // set local combiner class
+
+        // set local combiner class
         job.setCombinerClass(TextCombiner.class);
 
         // set reducer class
