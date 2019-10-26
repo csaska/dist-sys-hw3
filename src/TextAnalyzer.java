@@ -25,7 +25,6 @@ public class TextAnalyzer extends Configured implements Tool {
 
             // Map all permutations of word-pairs and write them to 'context'
             String line = value.toString();
-            //  StringTokenizer outerTokenizer = new StringTokenizer(line);
             String[] outerResult = line.split("\\s");
             for (int i = 0; i < outerResult.length; ++i) {
                String word1 = outerResult[i].replaceAll("[^a-zA-Z0-9]", " ").toLowerCase().trim();
@@ -111,7 +110,9 @@ public class TextAnalyzer extends Configured implements Tool {
 
     public int run(String[] args) throws Exception {
         Configuration conf = this.getConf();
-        conf.set("textinputformat.record.delimiter", ".");
+
+        // Uncomment to split by sentence
+        //  conf.set("textinputformat.record.delimiter", ".");
 
         // Create job
         Job job =  Job.getInstance(conf, "EID1_cts2458");  //  Deprecated: new Job(conf, "EID1_cts2458"); // Replace with your EIDs
